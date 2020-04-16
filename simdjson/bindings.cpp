@@ -131,7 +131,7 @@ Napi::Object simdjsonnode::LazyParseWrapped(const Napi::CallbackInfo& info) {
     Napi::Error::New(env, error_message(error)).ThrowAsJavaScriptException();
     return Napi::Object::New(env);
   }
-  Napi::External<dom::document> buffer = Napi::External<dom::document>::New(env, new dom::document(std::move(parser.doc)),
+  Napi::External<dom::document> buffer = Napi::External<dom::document>::New(env, new dom::document(parser.doc),
     [](Napi::Env /*env*/, dom::document * doc) {
       delete doc;
     });
