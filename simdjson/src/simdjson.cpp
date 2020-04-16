@@ -6664,7 +6664,7 @@ namespace simdjson::dom {
 //
 
 inline void parser::init_stage2() noexcept {
-  current_string_buf_loc = doc.string_buf.get();
+  current_string_buf_loc = doc.string_buf;
   current_loc = 0;
   valid = false;
   error = UNINITIALIZED;
@@ -6731,7 +6731,7 @@ really_inline bool parser::on_null_atom() noexcept {
 really_inline uint8_t *parser::on_start_string() noexcept {
   /* we advance the point, accounting for the fact that we have a NULL
     * termination         */
-  write_tape(current_string_buf_loc - doc.string_buf.get(), internal::tape_type::STRING);
+  write_tape(current_string_buf_loc - doc.string_buf, internal::tape_type::STRING);
   return current_string_buf_loc + sizeof(uint32_t);
 }
 

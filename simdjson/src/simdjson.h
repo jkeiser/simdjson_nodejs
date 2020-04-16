@@ -1025,17 +1025,26 @@ public:
    *
    * The parser will allocate capacity as needed.
    */
-  document() noexcept = default;
-  ~document() noexcept = default;
+  document() noexcept : tape{nullptr}, string_buf{nullptr} {};
+  ~document() noexcept {
+    if (tape) { delete tape; }
+    if (string_buf) { delete string_buf; }
+  }
 
   /**
    * Take another document's buffers.
    *
    * @param other The document to take. Its capacity is zeroed and it is invalidated.
    */
-  document(document &&other) noexcept = default;
-  /** @private */
-  document(const document &) = delete; // Disallow copying
+  document(document &&other) noexcept : tape{other.tape}, string_buf{other.string_buf} {
+    other.tape = nullptr;
+    other.string_buf = nullptr;
+  }
+  document(document &other) noexcept : tape{other.tape}, string_buf{other.string_buf} {
+    other.tape = nullptr;
+    other.string_buf = nullptr;
+  }
+
   /**
    * Take another document's buffers.
    *
@@ -1059,13 +1068,13 @@ public:
   bool dump_raw_tape(std::ostream &os) const noexcept;
 
   /** @private Structural values. */
-  std::unique_ptr<uint64_t[]> tape;
+  uint64_t* tape;
 
   /** @private String values.
    *
    * Should be at least byte_capacity.
    */
-  std::unique_ptr<uint8_t[]> string_buf;
+  uint8_t* string_buf;
 
 private:
   inline error_code allocate(size_t len) noexcept;
@@ -2696,14 +2705,14 @@ public:
   // within the string: get_string_length determines the true string length.
   inline const char *get_string() const {
       return reinterpret_cast<const char *>(
-          doc.string_buf.get() + (current_val & internal::JSON_VALUE_MASK) + sizeof(uint32_t));
+          doc.string_buf + (current_val & internal::JSON_VALUE_MASK) + sizeof(uint32_t));
   }
 
   // return the length of the string in bytes
   inline uint32_t get_string_length() const {
       uint32_t answer;
       memcpy(&answer,
-          reinterpret_cast<const char *>(doc.string_buf.get() +
+          reinterpret_cast<const char *>(doc.string_buf +
                                           (current_val & internal::JSON_VALUE_MASK)),
           sizeof(uint32_t));
       return answer;
@@ -3092,8 +3101,8 @@ inline element document::root() const noexcept {
 WARN_UNUSED
 inline error_code document::allocate(size_t capacity) noexcept {
   if (capacity == 0) {
-    string_buf.reset();
-    tape.reset();
+    string_buf = nullptr;
+    tape = nullptr;
     return SUCCESS;
   }
 
@@ -3106,8 +3115,8 @@ inline error_code document::allocate(size_t capacity) noexcept {
   // a document with only zero-length strings... could have len/3 string
   // and we would need len/3 * 5 bytes on the string buffer
   size_t string_capacity = ROUNDUP_N(5 * capacity / 3 + 32, 64);
-  string_buf.reset( new (std::nothrow) uint8_t[string_capacity]);
-  tape.reset(new (std::nothrow) uint64_t[tape_capacity]);
+  string_buf = new (std::nothrow) uint8_t[string_capacity];
+  tape = new (std::nothrow) uint64_t[tape_capacity];
   return string_buf && tape ? SUCCESS : MEMALLOC;
 }
 
@@ -3135,9 +3144,9 @@ inline bool document::dump_raw_tape(std::ostream &os) const noexcept {
     switch (type) {
     case '"': // we have a string
       os << "string \"";
-      memcpy(&string_length, string_buf.get() + payload, sizeof(uint32_t));
+      memcpy(&string_length, string_buf + payload, sizeof(uint32_t));
       os << internal::escape_json_string(std::string_view(
-        (const char *)(string_buf.get() + payload + sizeof(uint32_t)),
+        (const char *)(string_buf + payload + sizeof(uint32_t)),
         string_length
       ));
       os << '"';
